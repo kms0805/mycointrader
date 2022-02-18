@@ -1,8 +1,7 @@
 import sys
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QMainWindow
-from pybithumb import Bithumb
-import pybithumb
+from pyupbit import Upbit
 import datetime
 from PyQt5.QtCore import QThread, pyqtSignal
 from volatility import *
@@ -10,10 +9,10 @@ from volatility import *
 class VolatilityWorker(QThread):
     tradingSent = pyqtSignal(str, str, str)
 
-    def __init__(self, ticker, bithumb):
+    def __init__(self, ticker, upbit):
         super().__init__()
         self.ticker = ticker
-        self.bithumb = bithumb
+        self.upbit = upbit
         self.alive = True
 
     def run(self):
@@ -30,9 +29,9 @@ class VolatilityWorker(QThread):
                     target_price = get_target_price(self.ticker)
                     mid = datetime.datetime(now.year, now.month, now.day) + datetime.timedelta(1)
                     ma5 = get_yesterday_ma5(self.ticker)
-                    desc = sell_crypto_currency(self.bithumb, self.ticker)
+                    desc = sell_crypto_currency(self.upbit, self.ticker)
 
-                    result = self.bithumb.get_order_completed(desc)
+                    result = self.upbit.get_order_completed(desc)
                     timestamp = result['data']['order_date']
                     dt = datetime.datetime.fromtimestamp( int(int(timestamp)/1000000) )
                     tstring = dt.strftime("%Y/%m/%d %H:%M:%S")
@@ -40,10 +39,10 @@ class VolatilityWorker(QThread):
                     wait_flag = False
 
                 if wait_flag == False:
-                    current_price = pybithumb.get_current_price(self.ticker)
+                    current_price = pyupbit.get_current_price(self.ticker)
                     if (current_price > target_price) and (current_price > ma5):
-                        desc = buy_crypto_currency(self.bithumb, self.ticker)
-                        result = self.bithumb.get_order_completed(desc)
+                        desc = buy_crypto_currency(self.upbit, self.ticker)
+                        result = self.upbit.get_order_completed(desc)
                         timestamp = result['data']['order_date']
                         dt = datetime.datetime.fromtimestamp( int(int(timestamp)/1000000) )
                         tstring = dt.strftime("%Y/%m/%d %H:%M:%S")
@@ -62,11 +61,11 @@ class MainWindow(QMainWindow, form_class):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
-        self.ticker = "BTC"
+        self.ticker = "KRW-BTC"
         self.button.clicked.connect(self.clickBtn)
         self.setWindowTitle("Home Trading System")
 
-        with open("key/bithumb.txt") as f:
+        with open("key/upbit.txt") as f:
             lines = f.readlines()
             apikey = lines[0].strip()
             seckey = lines[1].strip()
@@ -81,8 +80,8 @@ class MainWindow(QMainWindow, form_class):
                 self.textEdit.append("KEY가 올바르지 않습니다.")
                 return
             else:
-                self.bithumb = Bithumb(apiKey, secKey)
-                self.balance = self.bithumb.get_balance(self.ticker)
+                self.upbit = Upbit(apiKey, secKey)
+                self.balance = self.upbit.get_balance(self.ticker)
                 if self.balance == None:
                     self.textEdit.append("KEY가 올바르지 않습니다.")
                     return
@@ -91,7 +90,7 @@ class MainWindow(QMainWindow, form_class):
             self.textEdit.append("------ START ------")
             self.textEdit.append(f"보유 현금 : {self.balance[2]} 원")
 
-            self.vw = VolatilityWorker(self.ticker, self.bithumb)
+            self.vw = VolatilityWorker(self.ticker, self.upbit)
             self.vw.tradingSent.connect(self.receiveTradingSignal)
             self.vw.start()
         else:

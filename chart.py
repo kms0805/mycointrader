@@ -6,7 +6,7 @@ from PyQt5.QtChart import QLineSeries, QChart, QValueAxis, QDateTimeAxis
 from PyQt5.QtCore import Qt, QDateTime
 # ----------------- 추 가 ------------------
 import time
-import pybithumb
+import pyupbit
 from PyQt5.QtCore import QThread, pyqtSignal
 
 class PriceWorker(QThread):
@@ -19,7 +19,7 @@ class PriceWorker(QThread):
 
     def run(self):
         while self.alive:
-            data  = pybithumb.get_current_price(self.ticker)
+            data  = pyupbit.get_current_price(self.ticker)
             time.sleep(1)
             self.dataSent.emit(data)
 
@@ -28,7 +28,7 @@ class PriceWorker(QThread):
 # ------------------------------------------
 
 class ChartWidget(QWidget):
-    def __init__(self, parent=None, ticker="BTC"):
+    def __init__(self, parent=None, ticker="KRW-BTC"):
         super().__init__(parent)
         uic.loadUi("resource/chart.ui", self)
         self.ticker = ticker

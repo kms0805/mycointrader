@@ -1,6 +1,6 @@
 import sys
 import time
-import pybithumb
+import pyupbit
 from PyQt5 import uic
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QTableWidgetItem, QProgressBar
@@ -9,7 +9,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal, QPropertyAnimation
 # ------------------------------------------
 
 class OrderbookWorker(QThread):
-    dataSent = pyqtSignal(dict)
+    dataSent = pyqtSignal(list)
 
     def __init__(self, ticker):
         super().__init__()
@@ -18,7 +18,8 @@ class OrderbookWorker(QThread):
 
     def run(self):
         while self.alive:
-            data  = pybithumb.get_orderbook(self.ticker, limit=10)
+            orderbook = pyupbit.get_orderbook(self.ticker)
+            data = orderbook['orderbook_units']
             time.sleep(0.05)
             self.dataSent.emit(data)
 
@@ -27,7 +28,7 @@ class OrderbookWorker(QThread):
 
 
 class OrderbookWidget(QWidget):
-    def __init__(self, parent =None, ticker = "BTC"):
+    def __init__(self, parent =None, ticker = "KRW-BTC"):
         super().__init__(parent)
         uic.loadUi("resource/orderbook.ui", self)
         self.ticker = ticker
@@ -76,54 +77,39 @@ class OrderbookWidget(QWidget):
                 QProgressBar::Chunk {background-color : rgba(0, 255, 0, 40%);border : 1}
             """)
             self.tableBids.setCellWidget(i, 2, item_2)
-            # ----------------- 추 가 ------------------
-            anim = QPropertyAnimation(item_2, b"value")
-            anim.setDuration(200)
-            self.bidsAnim.append(anim)
-            # ------------------------------------------
 
         self.ow = OrderbookWorker(self.ticker)
         self.ow.dataSent.connect(self.updateData)
         self.ow.start()
 
     def updateData(self, data):
+        data = data[:10] # resize data
         tradingBidValues = [ ]
-        for v in data['bids']:
-            tradingBidValues.append(int(v['price'] * v['quantity']))
-        tradingAskValues = [ ]
-        for v in data['asks'][::-1]:
-            tradingAskValues.append(int(v['price'] * v['quantity']))
+        tradingAskValues = []
+        for v in data:
+            tradingBidValues.append(int(v['bid_price'] * v['bid_size']))
+            tradingAskValues.append(int(v['ask_price'] * v['ask_size']))
         maxtradingValue = max(tradingBidValues + tradingAskValues)
 
-        for i, v in enumerate(data['asks'][::-1]):
-            item_0 = self.tableAsks.item(i, 0)
-            item_0.setText(f"{v['price']:,}")
-            item_1 = self.tableAsks.item(i, 1)
-            item_1.setText(f"{v['quantity']:,}")
-            item_2 = self.tableAsks.cellWidget(i, 2)
+        for i, v in enumerate(data):
+            item_0 = self.tableAsks.item(9-i, 0)
+            item_0.setText(f"{v['ask_price']:,}")
+            item_1 = self.tableAsks.item(9-i, 1)
+            item_1.setText(f"{v['ask_size']:,}")
+            item_2 = self.tableAsks.cellWidget(9-i, 2)
             item_2.setRange(0, maxtradingValue)
-            item_2.setFormat(f"{tradingAskValues[i]:,}")
-            # item_2.setValue(tradingAskValues[i])
-            # ----------------- 추 가 ------------------
-            self.asksAnim[i].setStartValue(item_2.value() if item_2.value() > 0 else 0)
-            self.asksAnim[i].setEndValue(tradingAskValues[i])
-            self.asksAnim[i].start()
-            # ------------------------------------------
+            item_2.setFormat(f"{tradingAskValues[9-i]:,}")
+            item_2.setValue(tradingAskValues[i])
 
-        for i, v in enumerate(data['bids']):
+        for i, v in enumerate(data):
             item_0 = self.tableBids.item(i, 0)
-            item_0.setText(f"{v['price']:,}")
+            item_0.setText(f"{v['bid_price']:,}")
             item_1 = self.tableBids.item(i, 1)
-            item_1.setText(f"{v['quantity']:,}")
+            item_1.setText(f"{v['bid_size']:,}")
             item_2 = self.tableBids.cellWidget(i, 2)
             item_2.setRange(0, maxtradingValue)
             item_2.setFormat(f"{tradingBidValues[i]:,}")
-            # item_2.setValue(tradingBidValues[i])
-            # ----------------- 추 가 ------------------
-            self.bidsAnim[i].setStartValue(item_2.value() if item_2.value() > 0 else 0)
-            self.bidsAnim[i].setEndValue(tradingBidValues[i])
-            self.bidsAnim[i].start()
-            # ------------------------------------------
+            item_2.setValue(tradingBidValues[i])
 
     def closeEvent(self, event):
         self.ow.close()
