@@ -28,3 +28,8 @@ def get_yesterday_ma5(ticker):
     close = df['close']
     ma = close.rolling(5).mean()
     return ma[-2]
+
+
+if __name__ == '__main__':
+    ticker = 'KRW-BTC'
+    print(get_target_price(ticker))
